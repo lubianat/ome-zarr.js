@@ -13,8 +13,51 @@ import {
   renderTo8bitArray,
   MAX_CHANNELS,
 } from "./utils";
-import jsdom from "jsdom";
 
+export interface RenderOptions {
+  targetSize?: number;
+  autoBoost?: boolean;
+  maxSize?: number;
+  omero?: Partial<Omero>;
+  //attrs?:
+  output?: "dataurl" | "rgb"; // default: "dataurl"
+  slices?: { [k: string]: number | [number, number] };
+}
+
+export async function render(
+  url: zarr.FetchStore | string,
+  options: RenderOptions = {}
+): Promise<string | Uint8ClampedArray> {
+  const {
+    targetSize,
+    autoBoost = false,
+    maxSize = 1000,
+    omero,
+    //    attrs,
+    output = "dataurl",
+    slices = {}
+  } = options;
+
+  const store = typeof url === "string" ? new zarr.FetchStore(url) : url;
+  const { multiscale, omero: arrayOmeroSettings, zarr_version, arr, shapes } =
+    await getMultiscaleWithArray(store, -1);
+
+  const combinedOmero = { ...arrayOmeroSettings, ...omero };
+
+  let selectedArray = arr;
+  if (targetSize) {
+    //TODO    selectedArray = await pickArrayForTargetSize(
+    store, multiscale, shapes, targetSize, zarr_version, maxSize
+    ); 1
+  }
+
+  // TODO const rgbData = await renderToRgb(selectedArray, multiscale.axes, combinedOmero, slices, autoBoost, shapes?.[0]);
+  if (output === "rgb") return rgbData;
+
+  const width = selectedArray.shape.at(-1)!;
+  const height = selectedArray.shape.at(-2)!;
+  return convertRbgDataToDataUrl(rgbData, width, height);
+}
 
 export async function renderThumbnail(
   store: zarr.FetchStore | string,
